@@ -1,0 +1,176 @@
+﻿@page "/fileupload"
+@using W1Webapp.Data
+@using System.Drawing;
+
+<PageTitle>File Upload</PageTitle>
+
+<div>
+    <div >
+        <div style="display:flex">            
+            <div >
+
+                @*<span>Choose from device or drag to upload image</span>*@
+                <label  for="file-upload" class="custom-file-upload">                                  
+                    <InputFile id="file-upload" OnChange="@OnChange" multiple style="display:none"/>
+                </label>
+            </div>
+
+            <div style="margin:15px 0px 0px 50px; border:3px solid gray; border-radius:10px; padding:0px 20px 0px 20px; width:450px">
+                <div style="margin:0% 0% 0% 25%; font-size:25px">
+                    Uploaded images
+                </div>
+                @foreach (var imageSource in uploadedImages)
+                {
+                    <div class="uploaded-images-container" @onclick="() => ImageListClick(imageSource)">
+                        <div class="uploaded-images-thumbnail">
+                            <img class="uploaded-image" src="@imageSource.OriginalAddress" />
+                            <span style="margin:0px 0px 0px 15px">@imageSource.Name</span>
+                        </div>
+                        <div class="uploaded-images-rest">
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        
+    </div>
+
+    @if(ShowPopUpBox){
+        <div class="modal" tabindex="-1" style="display:block" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">@uploadedImageProps.Name</h3>
+                        <button type="button" class="close" @onclick="ClosePopUp">
+                        <span aria-hidden="true">X</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input class="form-control" type="text"
+                           placeholder="Enter Picture Name"
+                           @bind="uploadedImageProps.Name" />
+                          
+                          
+                    <br />
+                        <span>Type: @uploadedImageProps.Extension</span>
+                        <br />
+                        <span>Size: @uploadedImageProps.Size</span>
+                        <br />
+                        <button class="btn btn-primary" @onclick="SaveButtonClick">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+    
+</div>
+
+
+
+
+
+@code {
+    // Max allowed files to be uploaded at one time
+    private const int maxFiles = 1;
+    private string errorMessage = "";
+
+    // The list of uploaded images
+    private static List<ImageProperty> uploadedImages = new List<ImageProperty>();
+
+    // Toggles the popup box and sets it to edit mode or new image mode
+    private bool ShowPopUpBox = false;
+    private bool editing = false;
+
+    // the current temp properties of an image (uploaded or selected)
+    private ImageProperty uploadedImageProps;
+
+    
+    // Ran on start
+    protected override async Task OnInitializedAsync()
+    {
+    // Unused for now
+    }
+
+    // Runs when you click on an uploaded image in the datagrid
+    private void ImageListClick(ImageProperty source){
+        // Set the popup to editing mode
+        editing = true;
+        // Set the clicked image as temp props
+        uploadedImageProps = source;
+        // Start the popup
+        ShowPopUpBox = true;
+    }
+
+    private void SaveButtonClick(){
+        if(!editing){ // if it's a new image
+          // give it a unique ID
+            Guid guid = Guid.NewGuid();
+            uploadedImageProps.Guid = guid;
+
+            // Add to the list
+            uploadedImages.Add(uploadedImageProps);
+            ClosePopUp();
+        } else {
+            // Try to find the selected image in the list (should always be there)
+            ImageProperty image = uploadedImages.Find(x => x.Guid == uploadedImageProps.Guid);
+
+            if(image is null){
+                // display error message? this should never happen anyway
+                ClosePopUp();
+                return;
+            }
+
+            // assign the new (possibly edited, not necessarly) version of the image data
+            image = uploadedImageProps;
+            ClosePopUp();
+            return;
+        }
+
+    }
+
+    // closes the pop up
+    private void ClosePopUp(){
+        ShowPopUpBox = false;
+
+    }
+
+    // Reads the file name and extracts the file extension
+    private string GetFileExtension(string fileName)
+    {
+        string[] split = fileName.Split('.');
+
+        return split[split.Length - 1];
+    }
+
+    // Runs when an image is selected from the drag/upload image button
+    async Task OnChange(InputFileChangeEventArgs e){
+        if(e.FileCount > maxFiles){
+            errorMessage = "Only 1 file per upload allowed";
+            return;
+        }
+
+        foreach(var file in e.GetMultipleFiles(maxFiles)){
+            // Load the image
+            using var stream = file.OpenReadStream();
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            // Set properties
+            ImageProperty imageProp = new ImageProperty();
+            imageProp.Size = file.Size;
+            imageProp.Name = file.Name;
+            imageProp.Extension = GetFileExtension(file.Name);
+            imageProp.OriginalAddress = $"data:{file.ContentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+
+            // Assign it to the temp object
+            uploadedImageProps = imageProp;
+            // Set editing to false (since it's a new image)
+            editing = false;
+            // Start the popups
+            ShowPopUpBox = true;
+        }
+    }
+     
+}
