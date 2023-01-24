@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout the code
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       # Install .NET Core SDK
       - name: Setup .NET Core
@@ -27,7 +27,10 @@ jobs:
           
       # Publishes Blazor project to the release-folder
       - name: Publish .NET Core Project
-        run: dotnet publish Web/Web.csproj -c:Release -p:GHPages=true -o dist/Web --nologo
+        run: dotnet publish -c Release -o release --nologo
+        
+      - name: Change base-tag i
+        run: sed -i 's/<base href="\/" \/>/<base href="\/W1Webapp\/" \/>/g' release/wwwroot/index.html
 
       - name: Commit wwwroot to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@3.7.1
